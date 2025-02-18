@@ -11,7 +11,7 @@
 
 ;; Data Maps
 (define-map collaborations
-  { collaboration-id: uint }
+  { collaboration-id: uint }c
   {
     ip-id: uint,
     collaborators: (list 10 principal),
