@@ -1,4 +1,4 @@
-;; Licensing Contract
+;; Dispute Resolution Contract
 
 ;; Constants
 (define-constant contract-owner tx-sender)
@@ -7,86 +7,58 @@
 (define-constant err-unauthorized (err u102))
 
 ;; Data Variables
-(define-data-var license-nonce uint u0)
+(define-data-var dispute-nonce uint u0)
 
 ;; Data Maps
-(define-map licenses
-  { license-id: uint }
+(define-map disputes
+  { dispute-id: uint }
   {
     ip-id: uint,
-    licensor: principal,
-    licensee: principal,
-    terms: (string-utf8 1000),
-    start-date: uint,
-    end-date: uint,
-    royalty-rate: uint,
-    active: bool
+    claimant: principal,
+    respondent: principal,
+    claim: (string-utf8 1000),
+    status: (string-ascii 20),
+    resolution: (optional (string-utf8 1000))
   }
-)
-
-(define-map royalties
-  { ip-id: uint }
-  { balance: uint }
 )
 
 ;; Public Functions
 
-;; Create a new license
-(define-public (create-license (ip-id uint) (licensee principal) (terms (string-utf8 1000)) (start-date uint) (end-date uint) (royalty-rate uint))
+;; File a dispute
+(define-public (file-dispute (ip-id uint) (respondent principal) (claim (string-utf8 1000)))
   (let
     (
-      (license-id (var-get license-nonce))
-      (ip (unwrap! (contract-call? .ip-registration get-ip ip-id) err-not-found))
+      (dispute-id (var-get dispute-nonce))
     )
-    (asserts! (is-eq tx-sender (get owner ip)) err-unauthorized)
-    (map-set licenses
-      { license-id: license-id }
+    (map-set disputes
+      { dispute-id: dispute-id }
       {
         ip-id: ip-id,
-        licensor: tx-sender,
-        licensee: licensee,
-        terms: terms,
-        start-date: start-date,
-        end-date: end-date,
-        royalty-rate: royalty-rate,
-        active: true
+        claimant: tx-sender,
+        respondent: respondent,
+        claim: claim,
+        status: "pending",
+        resolution: none
       }
     )
-    (var-set license-nonce (+ license-id u1))
-    (ok license-id)
+    (var-set dispute-nonce (+ dispute-id u1))
+    (ok dispute-id)
   )
 )
 
-;; Pay royalties
-(define-public (pay-royalties (license-id uint) (amount uint))
+;; Resolve dispute
+(define-public (resolve-dispute (dispute-id uint) (resolution (string-utf8 1000)))
   (let
     (
-      (license (unwrap! (map-get? licenses { license-id: license-id }) err-not-found))
-      (current-royalties (default-to { balance: u0 } (map-get? royalties { ip-id: (get ip-id license) })))
+      (dispute (unwrap! (map-get? disputes { dispute-id: dispute-id }) err-not-found))
     )
-    (asserts! (is-eq tx-sender (get licensee license)) err-unauthorized)
-    (try! (stx-transfer? amount tx-sender (as-contract tx-sender)))
-    (map-set royalties
-      { ip-id: (get ip-id license) }
-      { balance: (+ (get balance current-royalties) amount) }
-    )
-    (ok true)
-  )
-)
-
-;; Withdraw royalties
-(define-public (withdraw-royalties (ip-id uint))
-  (let
-    (
-      (ip (unwrap! (contract-call? .ip-registration get-ip ip-id) err-not-found))
-      (current-royalties (default-to { balance: u0 } (map-get? royalties { ip-id: ip-id })))
-    )
-    (asserts! (is-eq tx-sender (get owner ip)) err-unauthorized)
-    (asserts! (> (get balance current-royalties) u0) err-unauthorized)
-    (try! (as-contract (stx-transfer? (get balance current-royalties) tx-sender tx-sender)))
-    (map-set royalties
-      { ip-id: ip-id }
-      { balance: u0 }
+    (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+    (map-set disputes
+      { dispute-id: dispute-id }
+      (merge dispute {
+        status: "resolved",
+        resolution: (some resolution)
+      })
     )
     (ok true)
   )
@@ -94,18 +66,13 @@
 
 ;; Read-only Functions
 
-;; Get license details
-(define-read-only (get-license (license-id uint))
-  (ok (unwrap! (map-get? licenses { license-id: license-id }) err-not-found))
-)
-
-;; Get royalty balance
-(define-read-only (get-royalty-balance (ip-id uint))
-  (ok (get balance (default-to { balance: u0 } (map-get? royalties { ip-id: ip-id }))))
+;; Get dispute details
+(define-read-only (get-dispute (dispute-id uint))
+  (ok (unwrap! (map-get? disputes { dispute-id: dispute-id }) err-not-found))
 )
 
 ;; Initialize contract
 (begin
-  (var-set license-nonce u0)
+  (var-set dispute-nonce u0)
 )
 
