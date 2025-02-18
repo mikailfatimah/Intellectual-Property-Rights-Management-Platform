@@ -15,3 +15,7 @@ Q
 !contracts/dispute-resolution.clar,5/a/5acd40b2788851c069b177145b3954820caeb4e5
 L
 contracts/collaboration.clar,b/0/b0bb8cba9b083dbef5a079c825fa5d0bb457a04b
+P
+ tests/dispute-resolution.test.ts,8/3/83dac8f4da86f7a325bc49059e9bff6e05cc07d4
+K
+tests/collaboration.test.ts,f/4/f4106f4fac218c068ff21006018a1371cf66c19e
